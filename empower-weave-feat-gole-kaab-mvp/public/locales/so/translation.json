@@ -1,0 +1,59 @@
+{
+  "auth": {
+    "title": "Gole Kaab",
+    "description": "Ku soo biir barmaamijkeena awood-siinta bulshada",
+    "signIn": "Soo Gal",
+    "signUp": "Isdiiwaangeli",
+    "emailLabel": "Iimayl",
+    "emailPlaceholder": "iimaylkaaga@example.com",
+    "passwordLabel": "Erayga sirta ah",
+    "passwordPlaceholder": "Eraygaaga sirta ah",
+    "displayNameLabel": "Magaca Muuqda",
+    "displayNamePlaceholder": "Magacaaga muuqda",
+    "createAccount": "Abuur Akoon",
+    "welcomeBack": "Soo laabasho wacan!",
+    "accountCreated": "Akoonka waa la abuuray! Fadlan ka eeg iimaylkaaga si aad u xaqiijiso akoonkaaga.",
+    "otpTitle": "Geli Furaha Hal-mar ah",
+    "otpDescription": "Ka hubi iimaylkaaga OTP-ga.",
+    "verify": "Xaqiiji",
+    "error": "Cilad",
+    "success": "Guul"
+  },
+  "adminDashboard": {
+    "title": "Dashboard-ka Maamulka",
+    "description": "Ku soo dhowow dashboard-ka maamulka."
+  },
+  "header": {
+    "title": "Gole Kaab",
+    "subtitle": "Barnamijka Xoojinta Bulshada",
+    "nav": {
+      "dashboard": "Dukumeentirada",
+      "upload": "Soo galinta",
+      "community": "Bulshada",
+      "about": "Ku saabsan"
+    }
+  },
+  "index": {
+    "footer": {
+      "title": "Gole Kaab",
+      "description": "Awoodsiinta bulshooyinka la haybsooco iyada oo loo marayo tiknoolajiyada, wadaagga xogta, iyo xalal iskaashi. Si wada jir ah ayaan u dhisnaa mustaqbal adag.",
+      "features": "Astaamaha",
+      "featureList": [
+        "Soo Dejinta Dukumentiyada & Sawirrada",
+        "Doodaha Bulshada",
+        "Muuqaalaynta Xogta",
+        "Taageerada Luuqadaha Badan",
+        "Mudnaanta Helitaanka"
+      ],
+      "community": "Bulshada",
+      "communityList": [
+        "U doodista Dhalinyarada",
+        "Awoodsiinta Haweenka",
+        "Xuquuqda Dadka Naafada ah",
+        "Cilmi-baarista & Siyaasadda",
+        "Hal-abuurka Bulshada"
+      ],
+      "copyright": "© 2024 Gole Kaab. Waxaa lagu dhisay helitaan iyo ka-qaybgal udub-dhexaad u ah."
+    }
+  }
+}

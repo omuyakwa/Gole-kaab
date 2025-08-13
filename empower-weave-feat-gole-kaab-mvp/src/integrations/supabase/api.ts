@@ -1,0 +1,177 @@
+import { supabase } from './client';
+import { Post, Comment } from './data-types';
+
+/**
+ * Fetches all posts with author details, likes, and comments count.
+ */
+export const getPosts = async (): Promise<Post[]> => {
+  const { data: posts, error } = await supabase
+    .from('posts')
+    .select(`
+      id,
+      created_at,
+      content,
+      tags,
+      user_id,
+      profiles (
+        id,
+        display_name,
+        avatar_url
+      ),
+      likes ( count ),
+      comments ( count )
+    `)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching posts:', error);
+    throw error;
+  }
+
+  // The 'profiles' key needs to be renamed to 'author' to match our Post type
+  // and the counts need to be flattened.
+  return posts.map((post: any) => ({
+    ...post,
+    author: post.profiles,
+    likes: post.likes[0]?.count || 0,
+    comments_count: post.comments[0]?.count || 0,
+    comments: [], // Comments will be fetched separately when a post is expanded
+  }));
+};
+
+/**
+ * Creates a new post.
+ */
+export const createPost = async (content: string, userId: string, tags?: string[]): Promise<any> => {
+  const { data, error } = await supabase
+    .from('posts')
+    .insert([{ content, user_id: userId, tags: tags || [] }])
+    .select();
+
+  if (error) {
+    console.error('Error creating post:', error);
+    throw error;
+  }
+  return data;
+};
+
+/**
+ * Fetches all comments for a specific post with author details and likes count.
+ */
+export const getComments = async (postId: string): Promise<Comment[]> => {
+  const { data: comments, error } = await supabase
+    .from('comments')
+    .select(`
+      id,
+      created_at,
+      content,
+      user_id,
+      post_id,
+      profiles (
+        id,
+        display_name,
+        avatar_url
+      ),
+      likes ( count )
+    `)
+    .eq('post_id', postId)
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching comments:', error);
+    throw error;
+  }
+
+  return comments.map((comment: any) => ({
+    ...comment,
+    author: comment.profiles,
+    likes: comment.likes[0]?.count || 0,
+  }));
+};
+
+/**
+ * Creates a new comment on a post.
+ */
+export const createComment = async (content: string, postId: string, userId: string): Promise<any> => {
+  const { data, error } = await supabase
+    .from('comments')
+    .insert([{ content, post_id: postId, user_id: userId }])
+    .select();
+
+  if (error) {
+    console.error('Error creating comment:', error);
+    throw error;
+  }
+  return data;
+};
+
+/**
+ * Toggles a like on a post for a user.
+ * If the user has already liked the post, it unlikes it.
+ * If the user has not liked the post, it likes it.
+ */
+export const togglePostLike = async (postId: string, userId: string): Promise<any> => {
+  // First, check if the user has already liked the post
+  const { data: existingLike, error: selectError } = await supabase
+    .from('likes')
+    .select('id')
+    .eq('post_id', postId)
+    .eq('user_id', userId)
+    .single();
+
+  if (selectError && selectError.code !== 'PGRST116') { // PGRST116: no rows found
+    console.error('Error checking for existing like:', selectError);
+    throw selectError;
+  }
+
+  if (existingLike) {
+    // User has liked the post, so unlike it
+    const { error: deleteError } = await supabase
+      .from('likes')
+      .delete()
+      .eq('id', existingLike.id);
+
+    if (deleteError) {
+      console.error('Error unliking post:', deleteError);
+      throw deleteError;
+    }
+    return { message: 'Post unliked successfully' };
+  } else {
+    // User has not liked the post, so like it
+    const { error: insertError } = await supabase
+      .from('likes')
+      .insert([{ post_id: postId, user_id: userId }]);
+
+    if (insertError) {
+      console.error('Error liking post:', insertError);
+      throw insertError;
+    }
+    return { message: 'Post liked successfully' };
+  }
+};
+
+/**
+ * Fetches aggregated dashboard statistics.
+ */
+export const getDashboardStats = async (): Promise<any> => {
+  const { data, error } = await supabase.rpc('get_dashboard_stats');
+
+  if (error) {
+    console.error('Error fetching dashboard stats:', error);
+    throw error;
+  }
+  return data;
+};
+
+/**
+ * Fetches the number of posts per day for the last 30 days.
+ */
+export const getPostsPerDay = async (): Promise<{ day: string; count: number }[]> => {
+  const { data, error } = await supabase.rpc('get_posts_per_day');
+
+  if (error) {
+    console.error('Error fetching posts per day:', error);
+    throw error;
+  }
+  return data;
+};

@@ -1,0 +1,59 @@
+{
+  "auth": {
+    "title": "Gole Kaab",
+    "description": "Join our community empowerment platform",
+    "signIn": "Sign In",
+    "signUp": "Sign Up",
+    "emailLabel": "Email",
+    "emailPlaceholder": "your.email@example.com",
+    "passwordLabel": "Password",
+    "passwordPlaceholder": "Your password",
+    "displayNameLabel": "Display Name",
+    "displayNamePlaceholder": "Your display name",
+    "createAccount": "Create Account",
+    "welcomeBack": "Welcome back!",
+    "accountCreated": "Account created! Please check your email to confirm your account.",
+    "otpTitle": "Enter One-Time Password",
+    "otpDescription": "Check your email for the OTP.",
+    "verify": "Verify",
+    "error": "Error",
+    "success": "Success"
+  },
+  "adminDashboard": {
+    "title": "Admin Dashboard",
+    "description": "Welcome to the admin dashboard."
+  },
+  "header": {
+    "title": "Gole Kaab",
+    "subtitle": "Community Empowerment Platform",
+    "nav": {
+      "dashboard": "Dashboard",
+      "upload": "Upload",
+      "community": "Community",
+      "about": "About"
+    }
+  },
+  "index": {
+    "footer": {
+      "title": "Gole Kaab",
+      "description": "Empowering marginalized communities through technology, data sharing, and collaborative solutions. Together we weave a stronger future.",
+      "features": "Features",
+      "featureList": [
+        "Document & Image Upload",
+        "Community Discussions",
+        "Data Visualization",
+        "Multilingual Support",
+        "Accessibility First"
+      ],
+      "community": "Community",
+      "communityList": [
+        "Youth Advocacy",
+        "Women's Empowerment",
+        "Disability Rights",
+        "Research & Policy",
+        "Social Innovation"
+      ],
+      "copyright": "© 2024 Gole Kaab. Built with accessibility and inclusion at its core."
+    }
+  }
+}
