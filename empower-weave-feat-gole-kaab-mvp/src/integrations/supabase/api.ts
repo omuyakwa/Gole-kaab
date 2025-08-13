@@ -3,15 +3,17 @@ import { Post, Comment } from './data-types';
 
 /**
  * Fetches all posts with author details, likes, and comments count.
+ * Can be filtered by channel.
  */
-export const getPosts = async (): Promise<Post[]> => {
-  const { data: posts, error } = await supabase
+export const getPosts = async (channel?: string): Promise<Post[]> => {
+  let query = supabase
     .from('posts')
     .select(`
       id,
       created_at,
       content,
       tags,
+      channel,
       user_id,
       profiles (
         id,
@@ -22,6 +24,12 @@ export const getPosts = async (): Promise<Post[]> => {
       comments ( count )
     `)
     .order('created_at', { ascending: false });
+
+  if (channel && channel !== 'all') {
+    query = query.eq('channel', channel);
+  }
+
+  const { data: posts, error } = await query;
 
   if (error) {
     console.error('Error fetching posts:', error);
@@ -42,10 +50,10 @@ export const getPosts = async (): Promise<Post[]> => {
 /**
  * Creates a new post.
  */
-export const createPost = async (content: string, userId: string, tags?: string[]): Promise<any> => {
+export const createPost = async (content: string, userId: string, channel: string, tags?: string[]): Promise<any> => {
   const { data, error } = await supabase
     .from('posts')
-    .insert([{ content, user_id: userId, tags: tags || [] }])
+    .insert([{ content, user_id: userId, channel, tags: tags || [] }])
     .select();
 
   if (error) {
@@ -59,6 +67,12 @@ export const createPost = async (content: string, userId: string, tags?: string[
 
 export const getAllUsers = async () => {
   const { data, error } = await supabase.rpc('get_all_users');
+  if (error) throw error;
+  return data;
+};
+
+export const getHelplines = async () => {
+  const { data, error } = await supabase.from('helplines').select('*');
   if (error) throw error;
   return data;
 };

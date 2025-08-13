@@ -1,15 +1,17 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
-import { Menu, X, Upload, BarChart3, MessageSquare, Users, LogOut, User } from 'lucide-react';
+import { Menu, X, Upload, BarChart3, MessageSquare, Users, LogOut, User, Settings, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/components/auth/AuthContext';
 import { LanguageSelector } from '@/components/ui/language-selector';
+import { Link } from 'react-router-dom';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 
 export const Header = () => {
@@ -74,6 +76,13 @@ export const Header = () => {
 
           {/* Language Toggle & Mobile Menu */}
           <div className="flex items-center space-x-3">
+            <Link to="/help">
+              <Button variant="destructive" size="sm" className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4" />
+                Emergency Help
+              </Button>
+            </Link>
+
             <LanguageSelector />
 
             {user ? (
@@ -85,6 +94,13 @@ export const Header = () => {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
+                  <DropdownMenuItem asChild>
+                    <Link to="/settings">
+                      <Settings className="mr-2 h-4 w-4" />
+                      Settings
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleSignOut}>
                     <LogOut className="mr-2 h-4 w-4" />
                     Sign Out

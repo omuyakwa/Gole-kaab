@@ -14,14 +14,16 @@ import { PostComments } from './PostComments';
 
 export const CommunitySection = () => {
   const [newPostContent, setNewPostContent] = useState('');
+  const [newPostChannel, setNewPostChannel] = useState('general');
+  const [activeChannel, setActiveChannel] = useState('all');
   const [expandedPost, setExpandedPost] = useState<string | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
   const { data: posts, isLoading: isLoadingPosts, error: postsError } = useQuery({
-    queryKey: ['posts'],
-    queryFn: getPosts,
+    queryKey: ['posts', activeChannel],
+    queryFn: () => getPosts(activeChannel),
   });
 
   const aiSuggestions = [
@@ -30,9 +32,17 @@ export const CommunitySection = () => {
     "What are the most effective advocacy strategies for disability rights in urban planning?"
   ];
 
+  const channels = [
+    { id: 'general', name: 'General' },
+    { id: 'youth-forum', name: 'Youth Forum' },
+    { id: 'womens-initiatives', name: 'Women\'s Initiatives' },
+    { id: 'disability-rights', name: 'Disability Rights' },
+    { id: 'research-policy', name: 'Research & Policy' },
+  ];
+
   const createPostMutation = useMutation({
-    mutationFn: (newPost: { content: string; userId: string; }) =>
-      createPost(newPost.content, newPost.userId),
+    mutationFn: (newPost: { content: string; userId: string; channel: string; }) =>
+      createPost(newPost.content, newPost.userId, newPost.channel),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['posts'] });
       setNewPostContent('');
@@ -75,7 +85,7 @@ export const CommunitySection = () => {
 
   const handleCreatePost = () => {
     if (newPostContent.trim() && user) {
-      createPostMutation.mutate({ content: newPostContent, userId: user.id });
+      createPostMutation.mutate({ content: newPostContent, userId: user.id, channel: newPostChannel });
     }
   };
 
@@ -134,6 +144,26 @@ export const CommunitySection = () => {
                 className="min-h-[100px] resize-none transition-all duration-300 focus:shadow-soft"
               />
 
+              <div className="flex items-center gap-4">
+                <select
+                  value={newPostChannel}
+                  onChange={(e) => setNewPostChannel(e.target.value)}
+                  className="w-full sm:w-auto p-2 border border-border rounded-md bg-background focus:ring-2 focus:ring-ring"
+                >
+                  {channels.map(channel => (
+                    <option key={channel.id} value={channel.id}>{channel.name}</option>
+                  ))}
+                </select>
+                <Button
+                  onClick={handleCreatePost}
+                  disabled={!newPostContent.trim() || createPostMutation.isPending || !user}
+                  className="flex-1"
+                >
+                  {createPostMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  Post
+                </Button>
+              </div>
+
               <div className="flex flex-col sm:flex-row gap-4">
                 <Button
                   onClick={handleCreatePost}
@@ -179,6 +209,25 @@ export const CommunitySection = () => {
             </CardContent>
           </Card>
 
+          {/* Channel Filters */}
+          <div className="flex flex-wrap gap-2 mb-8">
+            <Button
+              variant={activeChannel === 'all' ? 'default' : 'outline'}
+              onClick={() => setActiveChannel('all')}
+            >
+              All Channels
+            </Button>
+            {channels.map(channel => (
+              <Button
+                key={channel.id}
+                variant={activeChannel === channel.id ? 'default' : 'outline'}
+                onClick={() => setActiveChannel(channel.id)}
+              >
+                {channel.name}
+              </Button>
+            ))}
+          </div>
+
           {/* Community Posts */}
           <div className="space-y-6">
             {isLoadingPosts && (
@@ -208,7 +257,7 @@ export const CommunitySection = () => {
                         </p>
                       </div>
                     </div>
-                    {/* Language badge can be a future feature */}
+                    <Badge variant="secondary">{channels.find(c => c.id === post.channel)?.name || 'General'}</Badge>
                   </div>
                 </CardHeader>
 
