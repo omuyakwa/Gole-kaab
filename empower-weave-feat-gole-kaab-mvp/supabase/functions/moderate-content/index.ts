@@ -11,54 +11,60 @@ async function checkContentModeration(text: string) {
   // const result = await response.json();
   // return result.is_flagged; // e.g., returns true if toxic
 
-  // Placeholder logic: flag content containing "toxic"
-  if (text.toLowerCase().includes('toxic')) {
-    return true;
+// Placeholder logic: flag content containing specific keywords
+  const toxicKeywords = ['badword', 'toxic', 'hate', 'spam'];
+  const reason = toxicKeywords.find(keyword => text.toLowerCase().includes(keyword));
+  if (reason) {
+    return { flagged: true, reason: `Contains potentially toxic keyword: ${reason}` };
   }
-  return false;
+  return { flagged: false, reason: null };
 }
 
 serve(async (req) => {
   try {
-    // This function is designed to be triggered by a Supabase Database Webhook.
+    // This function should be triggered by a Supabase Database Webhook on INSERT to the 'comments' table.
     const payload = await req.json();
-    const record = payload.record; // The new row data
 
-    // Ensure we have content to moderate
-    if (!record || !record.content) {
-      return new Response(JSON.stringify({ message: 'No content to moderate' }), {
+    // We only care about new comments
+    if (payload.type !== 'INSERT' || payload.table !== 'comments') {
+      return new Response(JSON.stringify({ message: 'Payload is not a new comment, skipping.' }), {
         headers: { 'Content-Type': 'application/json' },
       });
     }
 
-    const isFlagged = await checkContentModeration(record.content);
+    const comment = payload.record;
 
-    if (isFlagged) {
+    if (!comment || !comment.content) {
+      return new Response(JSON.stringify({ message: 'Comment has no content to moderate' }), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    const { flagged, reason } = await checkContentModeration(comment.content);
+
+    if (flagged) {
       // If content is flagged, update its status in the database.
-      // This requires the Supabase URL and a service_role key,
-      // which should be set as environment variables in the Edge Function settings.
       const supabaseAdmin = createClient(
         Deno.env.get('SUPABASE_URL') ?? '',
         Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
       );
 
-      const tableName = payload.table === 'posts' ? 'posts' : 'comments';
-
       const { error } = await supabaseAdmin
-        .from(tableName)
-        .update({ status: 'pending_review' })
-        .eq('id', record.id);
+        .from('comments')
+        .update({ is_flagged: true, moderation_reason: reason })
+        .eq('id', comment.id);
 
       if (error) {
-        throw new Error(`Failed to update status for flagged content: ${error.message}`);
+        console.error('Failed to flag comment:', error);
+        throw new Error(`Failed to update status for flagged comment: ${error.message}`);
       }
 
-      return new Response(JSON.stringify({ message: `Content ${record.id} flagged for review.` }), {
+      return new Response(JSON.stringify({ message: `Comment ${comment.id} flagged for review.` }), {
         headers: { 'Content-Type': 'application/json' },
       });
     }
 
-    return new Response(JSON.stringify({ message: 'Content passed moderation.' }), {
+    return new Response(JSON.stringify({ message: 'Comment passed moderation.' }), {
       headers: { 'Content-Type': 'application/json' },
     });
 
