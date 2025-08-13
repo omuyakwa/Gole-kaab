@@ -5,12 +5,17 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/components/ui/use-toast';
-import { Upload, File, Image, FileText, X, CheckCircle } from 'lucide-react';
+import { Upload, File, Image, FileText, X, CheckCircle, Loader2 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/components/auth/AuthContext';
+import imageCompression from 'browser-image-compression';
 
 export const UploadSection = () => {
+  const { user } = useAuth();
   const [dragActive, setDragActive] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [compressing, setCompressing] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const { toast } = useToast();
 
@@ -24,29 +29,65 @@ export const UploadSection = () => {
     }
   };
 
+  const compressImage = async (file: File): Promise<File> => {
+    if (!file.type.startsWith('image/')) {
+      return file;
+    }
+
+    const options = {
+      maxSizeMB: 1,
+      maxWidthOrHeight: 1920,
+      useWebWorker: true,
+    };
+
+    try {
+      const compressedFile = await imageCompression(file, options);
+      console.log(`Compressed ${file.name} from ${file.size / 1024 / 1024} MB to ${compressedFile.size / 1024 / 1024} MB`);
+      return compressedFile;
+    } catch (error) {
+      console.error('Error compressing image:', error);
+      toast({
+        title: "Compression failed",
+        description: `Could not compress ${file.name}. It will be uploaded in its original size.`,
+        variant: "destructive",
+      });
+      return file;
+    }
+  };
+
+  const handleFiles = async (newFiles: File[]) => {
+    if (!user) {
+      toast({
+        title: "Authentication Error",
+        description: "You must be logged in to upload files.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setCompressing(true);
+    const processedFiles = await Promise.all(newFiles.map(compressImage));
+    setFiles(prev => [...prev, ...processedFiles]);
+    setCompressing(false);
+
+    toast({
+      title: "Files processed",
+      description: `${processedFiles.length} file(s) ready for upload.`,
+    });
+  };
+
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const newFiles = Array.from(e.dataTransfer.files);
-      setFiles(prev => [...prev, ...newFiles]);
-      toast({
-        title: "Files added successfully",
-        description: `${newFiles.length} file(s) ready for upload`,
-      });
+      handleFiles(Array.from(e.dataTransfer.files));
     }
   };
 
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      const newFiles = Array.from(e.target.files);
-      setFiles(prev => [...prev, ...newFiles]);
-      toast({
-        title: "Files selected",
-        description: `${newFiles.length} file(s) ready for upload`,
-      });
+      handleFiles(Array.from(e.target.files));
     }
   };
 
@@ -54,22 +95,46 @@ export const UploadSection = () => {
     setFiles(prev => prev.filter((_, i) => i !== index));
   };
 
-  const simulateUpload = async () => {
+  const handleUpload = async () => {
+    if (!files.length || !user) return;
+
     setUploading(true);
     setUploadProgress(0);
 
-    // Simulate upload progress
-    for (let i = 0; i <= 100; i += 10) {
-      setUploadProgress(i);
-      await new Promise(resolve => setTimeout(resolve, 200));
-    }
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const filePath = `${user.id}/${file.name}`;
 
-    setUploading(false);
-    setFiles([]);
-    toast({
-      title: "Upload successful!",
-      description: "Your files have been uploaded and are now available to the community.",
-    });
+        const { error } = await supabase.storage
+          .from('user_uploads')
+          .upload(filePath, file, {
+            cacheControl: '3600',
+            upsert: false,
+          });
+
+        if (error) {
+          throw error;
+        }
+
+        // Update progress after each successful upload
+        setUploadProgress(((i + 1) / files.length) * 100);
+      }
+
+      toast({
+        title: "Upload successful!",
+        description: "Your files have been uploaded.",
+      });
+      setFiles([]);
+    } catch (error: any) {
+      toast({
+        title: "Upload failed",
+        description: "Your files could not be uploaded. They have been queued to upload automatically when you are online.",
+        variant: "destructive",
+      });
+    } finally {
+      setUploading(false);
+    }
   };
 
   const getFileIcon = (fileName: string) => {
@@ -137,9 +202,15 @@ export const UploadSection = () => {
                   />
                   <Button
                     variant="empowering"
-                    onClick={() => document.getElementById('file-input')?.click()}
+                    onClick={() => !compressing && document.getElementById('file-input')?.click()}
+                    disabled={compressing}
                   >
-                    Browse Files
+                    {compressing ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Upload className="w-4 h-4 mr-2" />
+                    )}
+                    {compressing ? 'Processing...' : 'Browse Files'}
                   </Button>
                 </div>
 
@@ -187,7 +258,7 @@ export const UploadSection = () => {
                   <Button
                     variant="hero"
                     className="w-full mt-6"
-                    onClick={simulateUpload}
+                    onClick={handleUpload}
                   >
                     <CheckCircle className="w-4 h-4 mr-2" />
                     Upload {files.length} File{files.length > 1 ? 's' : ''}
