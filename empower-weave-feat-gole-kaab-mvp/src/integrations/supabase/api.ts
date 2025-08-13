@@ -55,6 +55,43 @@ export const createPost = async (content: string, userId: string, tags?: string[
   return data;
 };
 
+// Admin-only functions
+
+export const getAllUsers = async () => {
+  const { data, error } = await supabase.rpc('get_all_users');
+  if (error) throw error;
+  return data;
+};
+
+export const getAllUploads = async () => {
+  const { data, error } = await supabase.rpc('get_all_uploads');
+  if (error) throw error;
+  return data;
+};
+
+export const getFlaggedComments = async () => {
+  const { data, error } = await supabase.rpc('get_flagged_comments');
+  if (error) throw error;
+  return data;
+};
+
+/**
+ * Fetches aggregated statistics for a specific user.
+ */
+export const getUserStats = async (userId: string): Promise<{ post_count: number; comment_count: number }> => {
+  if (!userId) {
+    return { post_count: 0, comment_count: 0 };
+  }
+
+  const { data, error } = await supabase.rpc('get_user_stats', { p_user_id: userId }).single();
+
+  if (error) {
+    console.error('Error fetching user stats:', error);
+    throw error;
+  }
+  return data;
+};
+
 /**
  * Fetches all comments for a specific post with author details and likes count.
  */

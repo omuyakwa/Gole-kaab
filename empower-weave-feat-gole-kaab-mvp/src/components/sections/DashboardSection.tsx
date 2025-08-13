@@ -1,15 +1,41 @@
 import { useQuery } from '@tanstack/react-query';
-import { getDashboardStats, getPostsPerDay, getPosts } from '@/integrations/supabase/api';
+import { getDashboardStats, getPostsPerDay, getPosts, getUserStats } from '@/integrations/supabase/api';
+import { useAuth } from '@/components/auth/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Users, FileText, MessageSquare, TrendingUp, Calendar, Loader2 } from 'lucide-react';
+import { Users, FileText, MessageSquare, TrendingUp, Calendar, Loader2, Download, User as UserIcon, File as FileIcon } from 'lucide-react';
 
 export const DashboardSection = () => {
+  const { user } = useAuth();
+
   const { data: stats, isLoading: isLoadingStats } = useQuery({
     queryKey: ['dashboardStats'],
     queryFn: getDashboardStats,
   });
+
+  const { data: userStats, isLoading: isLoadingUserStats } = useQuery({
+    queryKey: ['userStats', user?.id],
+    queryFn: () => getUserStats(user!.id),
+    enabled: !!user,
+  });
+
+  const { data: userUploads, isLoading: isLoadingUserUploads } = useQuery({
+    queryKey: ['userUploads', user?.id],
+    queryFn: () => supabase.storage.from('user_uploads').list(user!.id),
+    enabled: !!user,
+  });
+
+  const handleDownload = async (filePath: string) => {
+    try {
+      const { data, error } = await supabase.storage.from('user_uploads').createSignedUrl(filePath, 3600); // Link valid for 1 hour
+      if (error) throw error;
+      window.open(data.signedUrl, '_blank');
+    } catch (error: any) {
+      console.error('Error creating signed URL:', error);
+    }
+  };
 
   const { data: postsPerDay, isLoading: isLoadingChart } = useQuery({
     queryKey: ['postsPerDay'],
@@ -35,6 +61,43 @@ export const DashboardSection = () => {
         </div>
 
         {/* Stats Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+          <Card className="bg-background/50 backdrop-blur-sm">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">My Posts</CardTitle>
+              <MessageSquare className="h-4 w-4 text-secondary" />
+            </CardHeader>
+            <CardContent>
+              {isLoadingUserStats ? <Loader2 className="h-6 w-6 animate-spin" /> : <div className="text-2xl font-bold text-foreground">{userStats?.post_count || 0}</div>}
+            </CardContent>
+          </Card>
+          <Card className="bg-background/50 backdrop-blur-sm">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">My Comments</CardTitle>
+              <Reply className="h-4 w-4 text-secondary" />
+            </CardHeader>
+            <CardContent>
+              {isLoadingUserStats ? <Loader2 className="h-6 w-6 animate-spin" /> : <div className="text-2xl font-bold text-foreground">{userStats?.comment_count || 0}</div>}
+            </CardContent>
+          </Card>
+          <Card className="bg-background/50 backdrop-blur-sm">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">My Uploads</CardTitle>
+              <Upload className="h-4 w-4 text-secondary" />
+            </CardHeader>
+            <CardContent>
+              {isLoadingUserUploads ? <Loader2 className="h-6 w-6 animate-spin" /> : <div className="text-2xl font-bold text-foreground">{userUploads?.data?.length || 0}</div>}
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="text-center my-12">
+          <h3 className="text-2xl md:text-3xl font-bold text-foreground mb-4">
+            Platform-Wide Analytics
+          </h3>
+        </div>
+
+        {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
           <Card className="bg-background/50 backdrop-blur-sm">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -43,17 +106,15 @@ export const DashboardSection = () => {
             </CardHeader>
             <CardContent>
               {isLoadingStats ? <Loader2 className="h-6 w-6 animate-spin" /> : <div className="text-2xl font-bold text-foreground">{stats?.active_users || 0}</div>}
-              <p className="text-xs text-muted-foreground mt-1">Users who have posted or commented.</p>
             </CardContent>
           </Card>
           <Card className="bg-background/50 backdrop-blur-sm">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Community Posts</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Total Community Posts</CardTitle>
               <MessageSquare className="h-4 w-4 text-primary" />
             </CardHeader>
             <CardContent>
               {isLoadingStats ? <Loader2 className="h-6 w-6 animate-spin" /> : <div className="text-2xl font-bold text-foreground">{stats?.total_posts || 0}</div>}
-              <p className="text-xs text-muted-foreground mt-1">Total posts created by the community.</p>
             </CardContent>
           </Card>
           <Card className="bg-background/50 backdrop-blur-sm">
@@ -63,7 +124,6 @@ export const DashboardSection = () => {
             </CardHeader>
             <CardContent>
               {isLoadingStats ? <Loader2 className="h-6 w-6 animate-spin" /> : <div className="text-2xl font-bold text-foreground">{stats?.total_comments || 0}</div>}
-              <p className="text-xs text-muted-foreground mt-1">Total comments on all posts.</p>
             </CardContent>
           </Card>
         </div>
@@ -111,8 +171,42 @@ export const DashboardSection = () => {
             </CardContent>
           </Card>
 
-          {/* Recent Activity */}
+          {/* User Uploads */}
           <Card className="bg-background/70 backdrop-blur-sm">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileIcon className="w-5 h-5 text-primary" />
+                My Recent Uploads
+              </CardTitle>
+              <CardDescription>
+                Your recently uploaded files.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoadingUserUploads ? (
+                <div className="flex items-center justify-center h-full">
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {userUploads?.data?.slice(0, 5).map((file) => (
+                    <div key={file.id} className="flex items-center justify-between p-2 rounded-lg bg-muted/30">
+                      <p className="text-sm font-medium text-foreground truncate">{file.name}</p>
+                      <Button variant="ghost" size="icon" onClick={() => handleDownload(`${user?.id}/${file.name}`)}>
+                        <Download className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  {(!userUploads?.data || userUploads.data.length === 0) && (
+                    <p className="text-sm text-muted-foreground text-center py-4">You haven't uploaded any files yet.</p>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Recent Activity */}
+          <Card className="lg:col-span-3 bg-background/70 backdrop-blur-sm">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Calendar className="w-5 h-5 text-primary" />
