@@ -9,11 +9,17 @@ import { Upload, File, Image, FileText, X, CheckCircle, Loader2 } from 'lucide-r
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/auth/AuthContext';
 import imageCompression from 'browser-image-compression';
+import { createDocument } from '@/integrations/supabase/api';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 export const UploadSection = () => {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [dragActive, setDragActive] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [altText, setAltText] = useState('');
   const [uploading, setUploading] = useState(false);
   const [compressing, setCompressing] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -95,8 +101,21 @@ export const UploadSection = () => {
     setFiles(prev => prev.filter((_, i) => i !== index));
   };
 
+  const createDocumentMutation = useMutation({
+    mutationFn: createDocument,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['userUploads', user?.id] });
+    },
+    onError: (error) => {
+      console.error('Error creating document record:', error);
+    }
+  });
+
   const handleUpload = async () => {
-    if (!files.length || !user) return;
+    if (!files.length || !user || !title) {
+      toast({ title: 'Missing information', description: 'Please provide a title for your upload.', variant: 'destructive' });
+      return;
+    }
 
     setUploading(true);
     setUploadProgress(0);
@@ -106,30 +125,41 @@ export const UploadSection = () => {
         const file = files[i];
         const filePath = `${user.id}/${file.name}`;
 
-        const { error } = await supabase.storage
+        const { error: uploadError } = await supabase.storage
           .from('user_uploads')
           .upload(filePath, file, {
             cacheControl: '3600',
-            upsert: false,
+            upsert: true, // Use upsert to allow overwriting for simplicity in this example
           });
 
-        if (error) {
-          throw error;
-        }
+        if (uploadError) throw uploadError;
 
-        // Update progress after each successful upload
+        // Create a document record in the database
+        await createDocumentMutation.mutateAsync({
+          user_id: user.id,
+          title,
+          description,
+          file_path: filePath,
+          file_type: file.type,
+          file_size: file.size,
+          alt_text: file.type.startsWith('image/') ? altText : undefined,
+        });
+
         setUploadProgress(((i + 1) / files.length) * 100);
       }
 
       toast({
         title: "Upload successful!",
-        description: "Your files have been uploaded.",
+        description: "Your files have been uploaded and are now available.",
       });
       setFiles([]);
+      setTitle('');
+      setDescription('');
+      setAltText('');
     } catch (error: any) {
       toast({
         title: "Upload failed",
-        description: "Your files could not be uploaded. They have been queued to upload automatically when you are online.",
+        description: error.message,
         variant: "destructive",
       });
     } finally {
@@ -234,6 +264,7 @@ export const UploadSection = () => {
                           size="icon"
                           onClick={() => removeFile(index)}
                           className="hover:bg-destructive/10 hover:text-destructive"
+                          aria-label={`Remove ${file.name}`}
                         >
                           <X className="w-4 h-4" />
                         </Button>
@@ -272,60 +303,44 @@ export const UploadSection = () => {
               <CardHeader>
                 <CardTitle>Add Details</CardTitle>
                 <CardDescription>
-                  Provide additional information about your upload to help others find and understand your content.
+                  Provide information about your upload to help others find and understand your content.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">Title</label>
+                  <Label htmlFor="title">Title</Label>
                   <Input
+                    id="title"
                     placeholder="Enter a descriptive title"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
                     className="transition-all duration-300 focus:shadow-soft"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">Description</label>
+                  <Label htmlFor="description">Description</Label>
                   <Textarea
-                    placeholder="Describe your content and its relevance to the community"
+                    id="description"
+                    placeholder="Describe your content and its relevance"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
                     className="resize-none h-24 transition-all duration-300 focus:shadow-soft"
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">Category</label>
-                  <select className="w-full p-2 border border-border rounded-md bg-background focus:ring-2 focus:ring-ring focus:border-transparent">
-                    <option value="">Select a category</option>
-                    <option value="research">Research & Reports</option>
-                    <option value="policy">Policy Documents</option>
-                    <option value="community">Community Resources</option>
-                    <option value="advocacy">Advocacy Materials</option>
-                    <option value="education">Educational Content</option>
-                    <option value="other">Other</option>
-                  </select>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">Tags</label>
-                  <Input
-                    placeholder="youth, women, disability, rights (comma separated)"
-                    className="transition-all duration-300 focus:shadow-soft"
-                  />
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <input type="checkbox" id="accessible" className="rounded" />
-                  <label htmlFor="accessible" className="text-sm text-foreground">
-                    This content includes accessibility features (alt text, captions, etc.)
-                  </label>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <input type="checkbox" id="multilingual" className="rounded" />
-                  <label htmlFor="multilingual" className="text-sm text-foreground">
-                    Available in multiple languages
-                  </label>
-                </div>
+                {files.some(f => f.type.startsWith('image/')) && (
+                  <div className="space-y-2">
+                    <Label htmlFor="alt-text">Alternative Text for Images</Label>
+                    <Input
+                      id="alt-text"
+                      placeholder="e.g., A group of women sitting in a circle"
+                      value={altText}
+                      onChange={(e) => setAltText(e.target.value)}
+                      className="transition-all duration-300 focus:shadow-soft"
+                    />
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>

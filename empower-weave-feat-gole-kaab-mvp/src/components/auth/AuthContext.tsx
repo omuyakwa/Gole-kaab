@@ -12,6 +12,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error: any; requires2FA?: boolean }>;
   signInWithOtp: (email: string, token: string) => Promise<{ error: any }>;
   signOut: () => Promise<{ error: any }>;
+  refreshSession: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -30,6 +31,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const [requires2FA, setRequires2FA] = useState(false);
   const [role, setRole] = useState<string | null>(null);
+
+  const refreshSession = async () => {
+    const { data: { session } } = await supabase.auth.refreshSession();
+    setSession(session);
+    setUser(session?.user ?? null);
+  };
 
   useEffect(() => {
     const fetchSessionAndRole = async () => {
@@ -140,6 +147,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     signIn,
     signInWithOtp,
     signOut,
+    refreshSession,
   };
 
   return (

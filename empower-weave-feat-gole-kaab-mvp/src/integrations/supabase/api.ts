@@ -71,6 +71,12 @@ export const getAllUsers = async () => {
   return data;
 };
 
+export const createDocument = async (document: { user_id: string, title: string, description: string, file_path: string, file_type: string, file_size: number, alt_text?: string }) => {
+  const { data, error } = await supabase.from('documents').insert(document).select();
+  if (error) throw error;
+  return data;
+};
+
 export const getHelplines = async () => {
   const { data, error } = await supabase.from('helplines').select('*');
   if (error) throw error;

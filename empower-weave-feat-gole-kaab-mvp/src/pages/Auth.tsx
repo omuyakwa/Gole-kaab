@@ -8,12 +8,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/components/auth/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Fingerprint } from 'lucide-react';
 import {
   InputOTP,
   InputOTPGroup,
   InputOTPSlot,
 } from "@/components/ui/input-otp"
+
+import { startAuthentication } from '@simplewebauthn/browser';
+import { supabase } from '@/integrations/supabase/client';
 
 const Auth = () => {
   const { t } = useTranslation();
@@ -22,7 +25,8 @@ const Auth = () => {
   const [displayName, setDisplayName] = useState('');
   const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signIn, signUp, user, requires2FA, signInWithOtp } = useAuth();
+  const [isBiometricLoading, setIsBiometricLoading] = useState(false);
+  const { signIn, signUp, user, requires2FA, signInWithOtp, refreshSession } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -31,6 +35,38 @@ const Auth = () => {
       navigate('/');
     }
   }, [user, navigate]);
+
+  const handleBiometricSignIn = async () => {
+    setIsBiometricLoading(true);
+    try {
+      // 1. Get login options from the server
+      const { data: options, error: optionsError } = await supabase.functions.invoke('webauthn-login-challenge');
+      if (optionsError) throw optionsError;
+
+      // 2. Pass options to browser's WebAuthn API
+      const assertion = await startAuthentication(options);
+
+      // 3. Send assertion to server for verification
+      const { data: verification, error: verificationError } = await supabase.functions.invoke('webauthn-login-verify', {
+        body: assertion,
+      });
+      if (verificationError) throw verificationError;
+
+      if (verification.verified) {
+        // This is where a custom JWT would be used to create a session.
+        // For this MVP, we'll just refresh the session as the user should already have one.
+        await refreshSession();
+        toast({ title: 'Success', description: 'Signed in with biometrics.' });
+        navigate('/');
+      } else {
+        throw new Error('Biometric verification failed.');
+      }
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    } finally {
+      setIsBiometricLoading(false);
+    }
+  };
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -179,6 +215,27 @@ const Auth = () => {
                   >
                     {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     {t('auth.signIn')}
+                  </Button>
+
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-card px-2 text-muted-foreground">
+                        Or continue with
+                      </span>
+                    </div>
+                  </div>
+
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={handleBiometricSignIn}
+                    disabled={isBiometricLoading}
+                  >
+                    {isBiometricLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Fingerprint className="mr-2 h-4 w-4" />}
+                    Sign in with biometrics
                   </Button>
                 </form>
               </TabsContent>

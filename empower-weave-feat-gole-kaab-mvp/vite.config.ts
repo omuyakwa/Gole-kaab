@@ -32,6 +32,16 @@ export default defineConfig(({ mode }) => ({
             method: 'POST',
           },
           {
+            urlPattern: ({ url }) => url.pathname.startsWith('/rest/v1/'),
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'api-cache',
+              cacheableResponse: {
+                statuses: [0, 200],
+              },
+            },
+          },
+          {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
             handler: 'CacheFirst',
             options: {
